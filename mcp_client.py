@@ -79,12 +79,12 @@ client = MultiServerMCPClient(
             "transport": "stdio",
 
             # Use the same Python environment that runs app.py.
-            "command": r"C:\Users\RUDRA\miniconda3\envs\travel\python.exe",
+            "command": sys.executable,
 
             # Automatically use custom_weather_mcp_server.py
             # from the current project directory.
             "args": [
-                r"D:\TripmateAI\TripmateAI_multiagent_travel_planner\custom_weather_mcp_server.py"
+                str(WEATHER_SERVER_PATH)
             ],
 
             "env": WEATHER_ENV
