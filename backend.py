@@ -570,44 +570,38 @@ def human_approval_agent(state: TravelState):
 # Final Response Agent - original format kept, HITL feedback added
 # =========================
 def final_agent(state: TravelState):
-    if state.get("approved", False):
-        review_instruction = (
-            "The user approved the draft. Preserve its decisions while polishing it."
-        )
-    else:
-        review_instruction = f"""
-The user requested a revision. Apply this feedback carefully:
-{state.get('human_feedback', '') or 'Improve the draft before finalizing it.'}
-"""
+
+    def limit_text(value, max_chars):
+        if not value:
+            return "No information available."
+
+        text = str(value)
+
+        if len(text) > max_chars:
+            return text[:max_chars] + "\n...[truncated]"
+
+        return text
 
     final_prompt = f"""
-Generate the final travel response for the user.
+Create a concise final travel plan from the information below.
 
-Human Review:
-{review_instruction}
+USER REQUEST:
+{limit_text(state.get("user_query"), 1500)}
 
-User Request:
-{state['user_query']}
+FLIGHTS:
+{limit_text(state.get("flight_results"), 3000)}
 
-Supervisor Constraints:
-{state.get('trip_constraints', {})}
+HOTELS:
+{limit_text(state.get("hotel_results"), 3000)}
 
-Flights:
-{state.get('flight_results', '')}
+WEATHER:
+{limit_text(state.get("weather_results"), 2000)}
 
-Hotels:
-{state.get('hotel_results', '')}
+ITINERARY:
+{limit_text(state.get("itinerary"), 5000)}
 
-Weather:
-{state.get('weather_results', '')}
+Return the answer using exactly these sections:
 
-Budget Analysis:
-{state.get('budget_results', '')}
-
-Draft Itinerary:
-{state.get('itinerary', '')}
-
-Format the final answer beautifully using these sections:
 1. Trip Summary
 2. Flight Information
 3. Hotel Suggestions
@@ -616,29 +610,26 @@ Format the final answer beautifully using these sections:
 6. Estimated Budget
 7. Final Recommendations
 
-Important:
-- Be clear and practical.
-- Mention that live flight APIs may not provide ticket prices when pricing is unavailable.
-- Include weather-based travel advice.
-- Keep the response useful for real travel planning.
-- Incorporate the human feedback when revision was requested.
+Rules:
+- Be concise and practical.
+- Do not invent missing information.
+- If flight pricing is unavailable, explicitly say so.
+- Include useful weather-based advice.
+- Use the information provided above.
 """
 
-    response = llm.invoke(
-        [
-            SystemMessage(
-                content="You are a professional AI travel booking assistant."
-            ),
-            HumanMessage(content=final_prompt),
-        ]
-    )
+    response = llm.invoke([
+        SystemMessage(
+            content="You are a professional AI travel planning assistant. "
+                    "Give concise, accurate answers."
+        ),
+        HumanMessage(content=final_prompt)
+    ])
 
     return {
-        "final_response": response.content,
         "messages": [response],
-        "llm_calls": state.get("llm_calls", 0) + 1,
+        "llm_calls": state.get("llm_calls", 0) + 1
     }
-
 
 # =========================
 # Dynamic Supervisor Routing
